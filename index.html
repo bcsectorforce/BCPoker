@@ -1,1013 +1,826 @@
-<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Casino Poker — Advanced Texas Hold'em vs AI</title>
+<title>Advanced Texas Hold'em — AI Opponents</title>
 <style>
-  :root{
-    --table:#0b5a3a;
-    --felt:#0b6b4a;
-    --accent:#ffd700;
-    --chip-red:#d9534f;
-    --chip-blue:#337ab7;
-    --chip-green:#5cb85c;
-    --glass: rgba(255,255,255,0.06);
-    --card-back: linear-gradient(135deg,#0b3,#036);
-    font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-  }
-  html,body{height:100%;margin:0;background:radial-gradient(circle at 10% 10%, #07121a 0%, #000 60%);color:#eee}
-  .container{display:flex;flex-direction:column;align-items:center;gap:18px;padding:18px}
-  .table-wrap{width:100%;max-width:1100px;position:relative}
-  .table{
-    background:linear-gradient(180deg,var(--table),#063b2a);
-    border-radius:18px;padding:28px;box-shadow:0 10px 40px rgba(0,0,0,0.7);
-    position:relative;overflow:hidden;
-  }
-  .table:before{
-    content:"";position:absolute;inset:0;border-radius:18px;
-    background:radial-gradient(ellipse at center, rgba(255,255,255,0.02), transparent 30%);
-    pointer-events:none;
-  }
-  .table-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-  .logo{display:flex;align-items:center;gap:12px}
-  .logo .badge{background:var(--accent);color:#111;padding:6px 10px;border-radius:8px;font-weight:700}
-  .controls{display:flex;gap:8px;align-items:center}
-  .btn{background:var(--glass);border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:#fff;cursor:pointer}
-  .btn.primary{background:linear-gradient(180deg,#ffd54a,#ffb300);color:#111;border:none}
-  .table-center{display:flex;flex-direction:column;align-items:center;gap:12px}
-  .community{display:flex;gap:10px;align-items:center;min-height:120px}
-  .card{width:90px;height:130px;border-radius:8px;background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
-  .card.back{background:linear-gradient(135deg,#0b3,#036);color:#fff}
-  .player-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px}
-  .player{width:48%;display:flex;flex-direction:column;gap:8px}
-  .player .info{display:flex;justify-content:space-between;align-items:center}
-  .chips{display:flex;gap:6px;align-items:center}
-  .chip{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;box-shadow:0 6px 12px rgba(0,0,0,0.5)}
-  .chip.red{background:var(--chip-red)}
-  .chip.blue{background:var(--chip-blue)}
-  .chip.green{background:var(--chip-green)}
-  .actions{display:flex;gap:8px;align-items:center}
-  .bet-controls{display:flex;gap:8px;align-items:center;margin-top:8px}
-  .bet-input{width:120px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#fff}
-  .log{max-height:160px;overflow:auto;background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;font-size:13px}
-  .status{display:flex;gap:12px;align-items:center}
-  .pot{background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:8px}
-  .fancy{font-family:"Cinzel",serif}
-  .card.small{width:60px;height:86px;font-size:14px}
-  .hidden{display:none}
-  /* responsive */
-  @media(max-width:720px){
-  .card{
-    width:64px;
-    height:92px;
-    font-size:16px;
-  }
+:root{
+  --bg:#07121a; --felt:#0b6b4a; --panel:#0b3a2b; --accent:#ffd54a;
+  --text:#eaeaea; --muted:#bfc9c2; --danger:#d9534f;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:radial-gradient(circle at 10% 10%, #07121a 0%, #000 60%);color:var(--text)}
+.container{max-width:1200px;margin:18px auto;padding:18px;display:grid;grid-template-columns:1fr 360px;gap:18px}
+.table-wrap{background:linear-gradient(180deg,var(--felt),#063b2a);border-radius:14px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.badge{background:var(--accent);color:#111;padding:6px 10px;border-radius:8px;font-weight:700}
+.controls{display:flex;gap:8px;align-items:center}
+.btn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:var(--text);cursor:pointer}
+.btn.primary{background:linear-gradient(180deg,#ffd54a,#ffb300);color:#111;border:none}
+.table-center{display:flex;flex-direction:column;align-items:center;gap:12px}
+.community{display:flex;gap:10px;min-height:120px;align-items:center}
 
-  .card.small{
-    width:52px;
-    height:76px;
-    font-size:13px;
-  }
 
-  .player-row{
-    flex-direction:column;
-    gap:12px;
-  }
+.card-wrap{
+  perspective: 800px;
+  width:64px;
+  height:92px;
 }
 
-.card.flip-container {
-  perspective: 1000px;
+
+.card-inner{
+  width:100%;
+  height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  transition: transform 0.6s ease;
 }
 
-.card-inner {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.7s ease;
-}
-
-.card.flip .card-inner {
+.card-wrap.revealed .card-inner{
   transform: rotateY(180deg);
 }
 
-.card-face {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
+.card-face{
+  position:absolute;
+  width:100%;
+  height:100%;
+  backface-visibility:hidden;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  box-shadow:0 6px 18px rgba(0,0,0,0.6);
 }
 
-.card-face.front {
-  background: #fff;
-  color: #111;
+.card-front{
+  background:#fff;
+  color:#111;
   transform: rotateY(180deg);
 }
 
-.card-face.back {
-  background: var(--card-back);
-  color: #fff;
+.card-back{
+  background:linear-gradient(135deg,#0b3,#036);
+  color:#fff;
 }
 
-    .player-row{flex-direction:column;gap:12px}
-  }
+.card{width:90px;height:130px;border-radius:10px;background:#fff;color:#111;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
+.card.small{width:64px;height:92px;font-size:16px}
+.card.back{background:linear-gradient(135deg,#0b3,#036);color:#fff}
+.player-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.player{width:220px;background:rgba(0,0,0,0.12);padding:10px;border-radius:10px;display:flex;flex-direction:column;gap:8px;align-items:center}
+.player .info{display:flex;justify-content:space-between;width:100%}
+.chips{display:flex;gap:6px;align-items:center}
+.chip{width:48px;height:28px;border-radius:6px;background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--text);font-weight:700}
+.log{max-height:220px;overflow:auto;background:rgba(0,0,0,0.25);padding:10px;border-radius:8px;font-size:13px;color:var(--muted)}
+.side-panel{background:linear-gradient(180deg,#0b2b1f,#062a1f);padding:12px;border-radius:12px;color:var(--muted)}
+.setting{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.range{width:100%}
+.status{display:flex;gap:12px;align-items:center}
+.pot{background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:8px}
+.controls-bottom{display:flex;gap:8px;align-items:center;margin-top:8px}
+.input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text);width:120px}
+.small{font-size:12px;color:var(--muted)}
+.hud{display:flex;gap:8px;align-items:center}
+.progress{height:8px;background:rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;width:100%}
+.progress > i{display:block;height:100%;background:linear-gradient(90deg,#ffd54a,#ffb300)}
+.footer{margin-top:12px;color:var(--muted);font-size:13px}
+@media(max-width:980px){.container{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="table-wrap">
-    <div class="table" id="table">
-      <div class="table-top">
-        <div class="logo">
-          <div class="badge">CASINO</div>
-          <div class="fancy">BCPoker</div>
-        </div>
-        <div class="controls">
-          <div class="status">
-            <div class="pot">Pot: <span id="potAmount">0</span></div>
-            <div class="pot">Round: <span id="roundName">Idle</span></div>
-          </div>
-          <button class="btn" id="newGameBtn">New Game</button>
-          <button class="btn" id="settingsBtn">Settings</button>
-        </div>
+    <div class="header">
+      <div class="brand">
+        <div class="badge">CASINO</div>
+        <div style="font-family:Cinzel,serif;font-weight:700">BCPoker Pro</div>
       </div>
-
-      <div class="table-center">
-        <div class="community" id="community">
-          <!-- community cards -->
+      <div class="controls">
+        <div class="status">
+          <div class="pot">Pot: <strong id="potAmount">0</strong></div>
+          <div class="pot">Round: <strong id="roundName">Idle</strong></div>
         </div>
-        <div class="player-row">
-          <div class="player" id="aiPlayer">
-            <div class="info">
-              <div><strong>AI Opponent</strong></div>
-              <div class="chips"><div class="chip red" id="aiChips">1000</div></div>
-            </div>
-            <div class="hand" id="aiHand">
-              <!-- AI cards -->
-            </div>
-            <div class="log" id="aiLog">AI ready.</div>
-          </div>
-
-          <div class="player" id="humanPlayer">
-            <div class="info">
-              <div><strong>You</strong></div>
-              <div class="chips"><div class="chip blue" id="humanChips">1000</div></div>
-            </div>
-            <div class="hand" id="humanHand">
-              <!-- player cards -->
-            </div>
-
-            <div class="bet-controls">
-              <input type="number" id="betInput" class="bet-input" value="10" min="1" />
-              <div class="actions">
-                <button class="btn" id="foldBtn">Fold</button>
-                <button class="btn" id="callBtn">Call</button>
-                <button class="btn primary" id="raiseBtn">Raise</button>
-              </div>
-            </div>
-
-            <div class="log" id="gameLog">Welcome to Monte BC Poker.</div>
-          </div>
-        </div>
+        <button class="btn" id="newGameBtn">New Game</button>
+        <button class="btn" id="settingsBtn">Settings</button>
       </div>
-
     </div>
+
+    <div class="table-center">
+      <div class="community" id="community"></div>
+
+      <div class="player-row" id="playerRow"></div>
+
+      <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <div style="flex:1">
+          <div class="controls-bottom">
+            <input id="betInput" class="input" type="number" min="1" value="20" />
+            <button class="btn" id="foldBtn">Fold</button>
+            <button class="btn" id="callBtn">Call</button>
+            <button class="btn primary" id="raiseBtn">Raise</button>
+            <div style="margin-left:12px" class="small">Time left: <span id="turnTimer">—</span>s</div>
+          </div>
+        </div>
+        <div style="width:320px;margin-left:12px">
+          <div class="log" id="gameLog">Welcome to Advanced BC Poker.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer small">Tip: adjust AI difficulty and simulation iterations in the right panel for different experiences.</div>
   </div>
 
-  <div style="max-width:1100px;width:100%;display:flex;justify-content:space-between;gap:12px">
-    <div style="flex:1">
-      <h4>Game Controls</h4>
-      <p>Use the controls to bet. The AI uses BC poker to estimate win probability and plays accordingly.</p>
+  <div class="side-panel">
+    <h4 style="margin:0 0 8px 0;color:var(--text)">Settings & Stats</h4>
+
+    <div class="setting">
+      <label class="small">Players (including you)</label>
+      <select id="playerCount">
+        <option value="2">2 (Heads-up)</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+      </select>
     </div>
-    <div style="width:320px">
-      <h4>Settings</h4>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <label>AI Simulation Iterations
-          <input type="range" id="simIterations" min="100" max="5000" step="100" value="800" />
-        </label>
-        <label>Small Blind
-          <input type="number" id="smallBlind" value="5" min="1" />
-        </label>
-        <label>Big Blind
-          <input type="number" id="bigBlind" value="10" min="1" />
-        </label>
-      </div>
+
+    <div class="setting">
+      <label class="small">AI Difficulty</label>
+      <select id="aiDifficulty">
+        <option value="0.6">Easy</option>
+        <option value="0.8" selected>Normal</option>
+        <option value="1.0">Hard</option>
+      </select>
+    </div>
+
+    <div class="setting">
+      <label class="small">AI Simulation Iterations: <span id="simLabel">1200</span></label>
+      <input id="simIterations" class="range" type="range" min="200" max="5000" step="100" value="1200" />
+    </div>
+
+    <div class="setting">
+      <label class="small">Small Blind</label>
+      <input id="smallBlind" class="input" type="number" value="5" min="1" />
+    </div>
+
+    <div class="setting">
+      <label class="small">Big Blind</label>
+      <input id="bigBlind" class="input" type="number" value="10" min="1" />
+    </div>
+
+    <div style="margin-top:12px">
+      <h5 style="margin:0 0 6px 0;color:var(--text)">Session Stats</h5>
+      <div class="small">Hands played: <span id="handsPlayed">0</span></div>
+      <div class="small">Your net: <span id="yourNet">0</span></div>
+      <div class="small">AI wins: <span id="aiWins">0</span></div>
     </div>
   </div>
 </div>
 
 <script>
-/* Advanced Texas Hold'em Implementation
-   - Single HTML file
-   - Game logic, hand evaluator, AI Monte Carlo
-   - Designed for clarity and extensibility
-*/
-
-/* Utility functions */
-const randInt = (n) => Math.floor(Math.random()*n);
-const sleep = (ms) => new Promise(r=>setTimeout(r,ms));
+/* -------------------------
+   Utilities & Constants
+   ------------------------- */
 const SUITS = ['♠','♥','♦','♣'];
 const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+const RANK_TO_VALUE = RANKS.reduce((m,r,i)=>{m[r]=i;return m},{});
+const randInt = n => Math.floor(Math.random()*n);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-/* Deck and card helpers */
+/* -------------------------
+   Deck & Card Helpers
+   ------------------------- */
 function createDeck(){
-  const deck = [];
+  const deck=[];
   for(let s=0;s<4;s++){
     for(let r=0;r<13;r++){
-      deck.push({rank:RANKS[r],suit:SUITS[s],code:RANKS[r]+SUITS[s],r:r});
+      deck.push({rank:RANKS[r],suit:SUITS[s],v:r,code:RANKS[r]+SUITS[s]});
     }
   }
   return deck;
 }
 function shuffle(deck){
   for(let i=deck.length-1;i>0;i--){
-    const j = randInt(i+1);
+    const j=randInt(i+1);
     [deck[i],deck[j]]=[deck[j],deck[i]];
   }
   return deck;
 }
 
-/* Hand evaluator
-   We'll implement a reasonably fast evaluator for 5-7 card hands.
-   Approach: convert to numeric ranks, count occurrences, detect straights, flushes.
-*/
-function evaluateHand(cards){
-  // cards: array of {rank,suit, r}
-  // returns object {score, name, ranks:[]}
-  const counts = {}; const suits = {};
-  const ranks = cards.map(c=>c.r).sort((a,b)=>b-a);
-  for(const c of cards){
-    counts[c.r] = (counts[c.r]||0)+1;
-    suits[c.suit] = (suits[c.suit]||0)+1;
+/* -------------------------
+   Hand Evaluator (robust)
+   - returns numeric score and descriptive name
+   - score: higher is better; includes tie-breakers
+   ------------------------- */
+function evaluate7(cards){
+  // cards: array of {v, suit, rank}
+  // Convert to counts
+  const counts = new Array(13).fill(0);
+  const suits = {'♠':[],'♥':[],'♦':[],'♣':[]};
+  for(const c of cards){ counts[c.v]++; suits[c.suit].push(c.v); }
+  // helper to find best straight in a sorted unique array
+  const unique = [];
+  for(let i=12;i>=0;i--) if(counts[i]) unique.push(i);
+  // Ace-low handling: add -1 as 12->-1 mapping for wheel detection
+  const uniqWithAceLow = unique.slice();
+  if(unique.includes(12)) uniqWithAceLow.push(-1); // treat A as low for wheel
+  function findStraight(arr){
+    if(arr.length<5) return null;
+    let run=1, best=arr[0];
+    for(let i=1;i<arr.length;i++){
+      if(arr[i]===arr[i-1]-1){ run++; if(run>=5) { best=arr[i-4]; } }
+      else run=1;
+    }
+    // find highest straight high value
+    for(let i=0;i<=arr.length-5;i++){
+      let ok=true;
+      for(let j=1;j<5;j++) if(arr[i+j]!==arr[i]-j) { ok=false; break; }
+      if(ok) return arr[i];
+    }
+    return null;
   }
+  const straightHigh = findStraight(uniqWithAceLow);
   // flush detection
-  let flushSuit = null;
-  for(const s in suits) if(suits[s]>=5) flushSuit = s;
-  // straight detection (handle wheel A-2-3-4-5)
-  const uniqueRanks = [...new Set(ranks)].sort((a,b)=>b-a);
-  let straightHigh = null;
-  for(let i=0;i<uniqueRanks.length;i++){
-    let run = 1;
-    let high = uniqueRanks[i];
-    for(let j=i+1;j<uniqueRanks.length;j++){
-      if(uniqueRanks[j]===uniqueRanks[j-1]-1) run++; else break;
-    }
-    let straightHigh = null;
-for (let i = 0; i <= uniqueRanks.length - 5; i++) {
-  let ok = true;
-  for (let j = 1; j < 5; j++) {
-    if (uniqueRanks[i + j] !== uniqueRanks[i] - j) {
-      ok = false;
-      break;
-    }
-  }
-  if (ok) {
-    straightHigh = uniqueRanks[i];
-    break;
-  }
-}
-
-  }
-  // wheel check
-  if(!straightHigh){
-    const hasA = uniqueRanks.includes(12);
-    const wheel = [3,2,1,0].every(v=>uniqueRanks.includes(v));
-    if(hasA && wheel) straightHigh = 3; // 5-high straight
-  }
-
-  // flush + straight flush
+  let flushSuit=null;
+  for(const s of SUITS) if(suits[s].length>=5) flushSuit=s;
+  // straight flush
   if(flushSuit){
-    const flushCards = cards.filter(c=>c.suit===flushSuit).map(c=>c.r).sort((a,b)=>b-a);
-    const uniqF = [...new Set(flushCards)];
-    let sfHigh = null;
-    for(let i=0;i<uniqF.length;i++){
-      let run=1;
-      for(let j=i+1;j<uniqF.length;j++){
-        if(uniqF[j]===uniqF[j-1]-1) run++; else break;
-      }
-      let sfHigh = null;
-for (let i = 0; i <= uniqF.length - 5; i++) {
-  let ok = true;
-  for (let j = 1; j < 5; j++) {
-    if (uniqF[i + j] !== uniqF[i] - j) {
-      ok = false;
-      break;
-    }
-  }
-  if (ok) {
-    sfHigh = uniqF[i];
-    break;
-  }
-}
-
-    }
-    if(!sfHigh){
-      const hasA = uniqF.includes(12);
-      const wheel = [3,2,1,0].every(v=>uniqF.includes(v));
-      if(hasA && wheel) sfHigh = 3;
-    }
+    const fs = suits[flushSuit].slice().sort((a,b)=>b-a);
+    const fsUniq = [...new Set(fs)];
+    const sfHigh = findStraight(fsUniq.concat(fsUniq.includes(12)?[-1]:[]));
     if(sfHigh!==null){
-      // Straight flush or royal
-      const score = 9000000 + sfHigh;
-      return {score, name: sfHigh===12 ? 'Royal Flush' : 'Straight Flush', ranks:[sfHigh]};
+      if(sfHigh===12) return {score:9000000, name:'Royal Flush', ranks:[12]};
+      return {score:9000000 + sfHigh, name:'Straight Flush', ranks:[sfHigh]};
     }
   }
-
-  // counts analysis
+  // counts map
   const byCount = {};
-  for(const r in counts){
-    const c = counts[r];
-    byCount[c] = byCount[c] || [];
-    byCount[c].push(parseInt(r));
+  for(let i=12;i>=0;i--){
+    const c = counts[i];
+    if(c>0){ byCount[c]=byCount[c]||[]; byCount[c].push(i); }
   }
-  for(const k in byCount) byCount[k].sort((a,b)=>b-a);
-
   // Four of a kind
   if(byCount[4] && byCount[4].length){
     const quad = byCount[4][0];
-    const kicker = ranks.find(r=>r!==quad);
-    const score = 8000000 + quad*100 + kicker;
-    return {score, name:'Four of a Kind', ranks:[quad,kicker]};
+    const kicker = (()=>{ for(let i=12;i>=0;i--) if(i!==quad && counts[i]) return i; })();
+    return {score:8000000 + quad*100 + kicker, name:'Four of a Kind', ranks:[quad,kicker]};
   }
   // Full house
-  if(byCount[3] && byCount[3].length){
-    const trips = byCount[3][0];
+  if((byCount[3] && byCount[3].length) || (byCount[2] && byCount[2].length)){
+    const trips = (byCount[3] && byCount[3].length)?byCount[3][0]:null;
     let pair = null;
-    if(byCount[3].length>1) pair = byCount[3][1];
+    if(byCount[3] && byCount[3].length>1) pair = byCount[3][1];
     else if(byCount[2] && byCount[2].length) pair = byCount[2][0];
-    if(pair!==null){
-      const score = 7000000 + trips*100 + pair;
-      return {score, name:'Full House', ranks:[trips,pair]};
-    }
+    if(trips!==null && pair!==null) return {score:7000000 + trips*100 + pair, name:'Full House', ranks:[trips,pair]};
   }
   // Flush
   if(flushSuit){
-    const flushCards = cards.filter(c=>c.suit===flushSuit).map(c=>c.r).sort((a,b)=>b-a).slice(0,5);
+    const top5 = suits[flushSuit].slice().sort((a,b)=>b-a).slice(0,5);
     let score = 6000000;
-    for(let i=0;i<flushCards.length;i++) score += flushCards[i]*Math.pow(10,4-i);
-    return {score, name:'Flush', ranks:flushCards};
+    for(let i=0;i<top5.length;i++) score += top5[i]*Math.pow(100,4-i);
+    return {score, name:'Flush', ranks:top5};
   }
   // Straight
-  if(straightHigh!==null){
-    const score = 5000000 + straightHigh;
-    return {score, name:'Straight', ranks:[straightHigh]};
-  }
+  if(straightHigh!==null) return {score:5000000 + straightHigh, name:'Straight', ranks:[straightHigh]};
   // Three of a kind
   if(byCount[3] && byCount[3].length){
     const trips = byCount[3][0];
-    const kickers = ranks.filter(r=>r!==trips).slice(0,2);
+    const kickers = [];
+    for(let i=12;i>=0 && kickers.length<2;i--) if(i!==trips && counts[i]) kickers.push(i);
     let score = 4000000 + trips*10000 + kickers[0]*100 + kickers[1];
     return {score, name:'Three of a Kind', ranks:[trips,...kickers]};
   }
   // Two pair
   if(byCount[2] && byCount[2].length>=2){
     const p1 = byCount[2][0], p2 = byCount[2][1];
-    const kicker = ranks.find(r=>r!==p1 && r!==p2);
+    const kicker = (()=>{ for(let i=12;i>=0;i--) if(i!==p1 && i!==p2 && counts[i]) return i; })();
     let score = 3000000 + p1*10000 + p2*100 + kicker;
     return {score, name:'Two Pair', ranks:[p1,p2,kicker]};
   }
   // One pair
   if(byCount[2] && byCount[2].length===1){
     const p = byCount[2][0];
-    const kickers = ranks.filter(r=>r!==p).slice(0,3);
+    const kickers=[];
+    for(let i=12;i>=0 && kickers.length<3;i--) if(i!==p && counts[i]) kickers.push(i);
     let score = 2000000 + p*1000000 + kickers[0]*10000 + kickers[1]*100 + kickers[2];
     return {score, name:'One Pair', ranks:[p,...kickers]};
   }
   // High card
-  const top5 = ranks.slice(0,5);
+  const top5=[];
+  for(let i=12;i>=0 && top5.length<5;i--) if(counts[i]) top5.push(i);
   let score = 1000000;
-  for(let i=0;i<top5.length;i++) score += top5[i]*Math.pow(10,4-i);
+  for(let i=0;i<top5.length;i++) score += top5[i]*Math.pow(100,4-i);
   return {score, name:'High Card', ranks:top5};
 }
 
-/* Compare two hands given community cards */
-function bestHandFromHole(hole, community){
+/* -------------------------
+   Best 5 from hole + community
+   ------------------------- */
+function bestFrom(hole, community){
   const all = hole.concat(community);
-  // choose best 5-card combination from all (nC5)
+  // choose best 5-of-n combination (n up to 7)
   let best = null;
   const n = all.length;
-  const idx = [...Array(n).keys()];
-  function comb(arr,k,start,cur){
-    if(cur.length===k){
-      const evalRes = evaluateHand(cur);
-      if(!best || evalRes.score>best.score) best = evalRes;
+  const idx = Array.from({length:n},(_,i)=>i);
+  function comb(start, chosen){
+    if(chosen.length===5){
+      const res = evaluate7(chosen);
+      if(!best || res.score>best.score) best = res;
       return;
     }
-    for(let i=start;i<arr.length;i++){
-      comb(arr,k,i+1,cur.concat([arr[i]]));
-    }
+    for(let i=start;i<n;i++) comb(i+1, chosen.concat(all[i]));
   }
-  comb(all,5,0,[]);
+  comb(0,[]);
   return best;
 }
 
-/* Game state and logic */
-
-
-
+/* -------------------------
+   Game State & Engine
+   ------------------------- */
 const state = {
   deck:[],
   community:[],
-  players:[
-    {name:'AI',chips:1000,hand:[],active:true,bet:0,folded:false},
-    {name:'You',chips:1000,hand:[],active:true,bet:0,folded:false}
-  ],
+  players:[], // {id,name,ai,stack,hand,bet,folded,allIn,active,stats}
   dealer:0,
   pot:0,
   sidePots:[],
   currentBet:0,
-  lastAggressor: null, // 0 = AI, 1 = Human
-  turn:1,
+  minRaise:10,
   round:'idle',
+  turnIndex:0,
   smallBlind:5,
   bigBlind:10,
-  simIterations:800,
-  minRaise:10,
-
-  memory: {
-    handsPlayed: 0,
-    human: {
-      folds: 0,
-      calls: 0,
-      raises: 0,
-      aggression: 0.5,
-      lastShowdown: null
-    },
-    ai: {
-      bluffs: 0,
-      bluffSuccess: 0,
-      lastResult: null
-    }
-  }
+  simIterations:1200,
+  aiDifficulty:0.8,
+  playerCount:2,
+  handsPlayed: 0,
+  lastAIBet: 0,
 };
 
-
-/* UI helpers */
-const el = (id)=>document.getElementById(id);
-function renderChips(){
-  el('aiChips').textContent = state.players[0].chips;
-  el('humanChips').textContent = state.players[1].chips;
-  el('potAmount').textContent = state.pot;
-}
+/* -------------------------
+   UI Helpers
+   ------------------------- */
+const el = id => document.getElementById(id);
 function log(msg, who='game'){
-  const target = who==='ai' ? el('aiLog') : el('gameLog');
+  const target = el('gameLog');
   const time = new Date().toLocaleTimeString();
   target.innerHTML = `<div>[${time}] ${msg}</div>` + target.innerHTML;
 }
-function renderHands(revealAI = false, animate = false) {
-  const aiHandEl = el('aiHand'); aiHandEl.innerHTML = '';
-  const humanHandEl = el('humanHand'); humanHandEl.innerHTML = '';
+function renderChips(){
+  el('potAmount').textContent = state.pot;
+  el('handsPlayed').textContent = state.handsPlayed;
+  el('simLabel').textContent = state.simIterations;
+  el('roundName').textContent = state.round.charAt(0).toUpperCase() + state.round.slice(1);
+  el('yourNet').textContent = (state.players.find(p=>!p.ai)?.stack || 0) - 1000;
+  el('aiWins').textContent = state.players.filter(p=>p.ai && p.stats && p.stats.wins).length;
+}
 
-  // --- AI cards ---
-  for (const c of state.players[0].hand) {
-    const container = document.createElement('div');
-    container.className = 'card small flip-container';
-    if (revealAI && animate) container.classList.add('flip');
+/* Build player UI */
+function renderPlayers(){
+  const row = el('playerRow'); row.innerHTML='';
+  for(const p of state.players){
+    const div = document.createElement('div'); div.className='player';
+    const info = document.createElement('div'); info.className='info';
+    info.innerHTML = `<div><strong>${p.name}${p.id===state.dealer?' (D)':''}</strong></div><div class="chips"><div class="chip">${p.stack}</div></div>`;
+    div.appendChild(info);
+    const handWrap = document.createElement('div'); handWrap.style.display='flex'; handWrap.style.gap='6px';
+    for(const c of p.hand){
+  const wrap = document.createElement('div');
+  wrap.className = 'card-wrap';
+  if(!p.ai || p.revealed) wrap.classList.add('revealed');
 
-    const inner = document.createElement('div');
-    inner.className = 'card-inner';
+  const inner = document.createElement('div');
+  inner.className = 'card-inner card small';
 
-    const back = document.createElement('div');
-    back.className = 'card-face back';
-    back.textContent = '🂠';
+  const back = document.createElement('div');
+  back.className = 'card-face card-back';
+  back.textContent = '';
 
-    const front = document.createElement('div');
-    front.className = 'card-face front';
-    front.textContent = c.code;
+  const front = document.createElement('div');
+  front.className = 'card-face card-front';
+  front.textContent = c.code;
 
-    inner.appendChild(back);
-    inner.appendChild(front);
-    container.appendChild(inner);
-    aiHandEl.appendChild(container);
+  inner.appendChild(back);
+  inner.appendChild(front);
+  wrap.appendChild(inner);
 
-    // force reflow so animation triggers
-    if (revealAI && animate) {
-      requestAnimationFrame(() => container.classList.add('flip'));
-    }
-  }
+  if(p.folded) wrap.style.opacity = 0.4;
 
-  // --- Human cards (always face-up, no flip) ---
-  for (const c of state.players[1].hand) {
-    const d = document.createElement('div');
-    d.className = 'card small';
-    d.textContent = c.code;
-    humanHandEl.appendChild(d);
+  handWrap.appendChild(wrap);
+}
+
+    div.appendChild(handWrap);
+    const status = document.createElement('div'); status.className='small';
+    status.textContent = p.folded ? 'Folded' : (p.allIn ? 'All-in' : (p.active ? 'Active' : 'Out'));
+    div.appendChild(status);
+    row.appendChild(div);
   }
 }
 
+/* Render community */
 function renderCommunity(){
   const cont = el('community'); cont.innerHTML='';
   for(const c of state.community){
     const d = document.createElement('div'); d.className='card';
-    d.textContent = c.code;
-    cont.appendChild(d);
+    d.textContent = c.code; cont.appendChild(d);
   }
 }
 
-/* Game flow functions */
-function resetDeck(){
-  state.deck = shuffle(createDeck());
+/* -------------------------
+   Game Flow
+   ------------------------- */
+function resetDeck(){ state.deck = shuffle(createDeck()); }
+function initPlayers(count){
+  state.players = [];
+  for(let i=0;i<count;i++){
+    const isHuman = (i===count-1); // last seat is human
+    state.players.push({
+      id:i,
+      name: isHuman ? 'You' : `AI ${i+1}`,
+      ai: !isHuman,
+      stack:1000,
+      hand:[],
+      bet:0,
+      folded:false,
+      allIn:false,
+      active:true,
+      revealed:false,
+      stats:{wins:0}
+    });
+  }
+  // seat human at last index for consistent UI
+  state.dealer = Math.floor(Math.random()*state.players.length);
 }
+
 function dealHole(){
-  for(let p of state.players) p.hand = [];
-  // deal two to each
-  for(let i=0;i<2;i++){
-    for(let p of state.players){
+  for(const p of state.players) p.hand=[];
+  for(let r=0;r<2;r++){
+    for(const p of state.players){
       p.hand.push(state.deck.pop());
     }
   }
 }
+
 function postBlinds(){
-  const sb = state.smallBlind, bb = state.bigBlind;
-  const sbPlayer = (state.dealer+1)%2;
-  const bbPlayer = (state.dealer+2)%2;
-  // ensure indices map to players array length 2
-  const sbIdx = sbPlayer%2, bbIdx = bbPlayer%2;
-  const sbAmt = Math.min(sb, state.players[sbIdx].chips);
-  state.players[sbIdx].chips -= sbAmt; state.players[sbIdx].bet += sbAmt; state.pot += sbAmt;
-  const bbAmt = Math.min(bb, state.players[bbIdx].chips);
-  state.players[bbIdx].chips -= bbAmt; state.players[bbIdx].bet += bbAmt; state.pot += bbAmt;
-  state.currentBet = bbAmt;
-  log(`${state.players[sbIdx].name} posts small blind ${sbAmt}`, sbIdx===0?'ai':'game');
-  log(`${state.players[bbIdx].name} posts big blind ${bbAmt}`, bbIdx===0?'ai':'game');
-  renderChips();
+  const sbIdx = (state.dealer+1)%state.players.length;
+  const bbIdx = (state.dealer+2)%state.players.length;
+  const sb = Math.min(state.smallBlind, state.players[sbIdx].stack);
+  const bb = Math.min(state.bigBlind, state.players[bbIdx].stack);
+  state.players[sbIdx].stack -= sb; state.players[sbIdx].bet += sb; state.pot += sb;
+  state.players[bbIdx].stack -= bb; state.players[bbIdx].bet += bb; state.pot += bb;
+  state.currentBet = bb;
+  log(`${state.players[sbIdx].name} posts small blind ${sb}`);
+  log(`${state.players[bbIdx].name} posts big blind ${bb}`);
 }
-function startHand(){
-  // reset
-  state.community = [];
-  state.pot = 0;
-  state.sidePots = [];
+
+function resetBetsForRound(){
+  for(const p of state.players){ p.bet=0; }
   state.currentBet = 0;
-  state.players.forEach(p=>{p.bet=0;p.folded=false;p.active=true;});
-  resetDeck();
-  dealHole();
-  renderHands(false);
-  renderCommunity();
-  postBlinds();
-  state.round = 'preflop';
-  el('roundName').textContent = 'Preflop';
-  // first to act is player after big blind
-  state.turn = (state.dealer+3)%2; // small table mapping
-  log('New hand started.');
-  // if AI acts first, trigger AI turn
-  if(state.turn===0) aiAct();
 }
+
+function activePlayers(){
+  return state.players.filter(p=>!p.folded && p.stack>0);
+}
+
+function nextToAct(from){
+  const n = state.players.length;
+  for(let i=1;i<=n;i++){
+    const idx = (from + i) % n;
+    const p = state.players[idx];
+    if(!p.folded && (p.stack>0 || p.bet>0)) return idx;
+  }
+  return null;
+}
+
+async function revealAIWinner(winner){
+  winner.revealed = true;
+  renderPlayers();
+  await sleep(900);
+}
+
+
+
+/* Progress rounds */
 async function progressRound(){
-  // advance round: preflop -> flop -> turn -> river -> showdown
   if(state.round==='preflop'){
-    // burn one, deal 3
-    state.deck.pop(); state.community.push(state.deck.pop(),state.deck.pop(),state.deck.pop());
-    state.round='flop'; el('roundName').textContent='Flop';
+    // burn + flop
+    state.deck.pop();
+    state.community.push(state.deck.pop(), state.deck.pop(), state.deck.pop());
+    state.round='flop';
+    log('Dealt the flop.');
   } else if(state.round==='flop'){
-    state.deck.pop(); state.community.push(state.deck.pop()); state.round='turn'; el('roundName').textContent='Turn';
+    state.deck.pop(); state.community.push(state.deck.pop()); state.round='turn'; log('Dealt the turn.');
   } else if(state.round==='turn'){
-    state.deck.pop(); state.community.push(state.deck.pop()); state.round='river'; el('roundName').textContent='River';
+    state.deck.pop(); state.community.push(state.deck.pop()); state.round='river'; log('Dealt the river.');
   } else if(state.round==='river'){
-    state.round='showdown'; el('roundName').textContent='Showdown';
+    state.round='showdown'; log('Showdown!');
     await showdown();
     return;
   }
   // reset bets for next betting round
-  state.players.forEach(p=>p.bet=0);
+  for(const p of state.players) p.bet=0;
   state.currentBet=0;
-  renderCommunity();
-  renderHands(false);
-  // first to act is player after dealer (small blind) -> for 2 players, it's dealer^1
-  state.turn = (state.dealer+1)%2;
-  log(`Dealt ${state.round}.`);
-  if(state.turn===0) aiAct();
+  renderCommunity(); renderPlayers(); renderChips();
+  // first to act postflop is player after dealer
+  state.turnIndex = (state.dealer+1)%state.players.length;
+  await runBettingRound();
 }
 
-/* Betting helpers */
-function getOther(i){ return (i+1)%2; }
-function canContinueBetting(){
-  // if both players have equal bets or one folded, betting round can end
-  const activePlayers = state.players.filter(p=>!p.folded && p.chips>0);
-  if(activePlayers.length<=1) return false;
-  // if bets equal and no pending raises, end
-  const bets = state.players.map(p=>p.bet);
-  return !(bets[0]===bets[1]);
+/* Betting round controller */
+async function runBettingRound(){
+  const acted = new Set();   // track who already acted
+  let loopGuard = 0;
+
+  while(true){
+    loopGuard++; if(loopGuard > 50) break;
+
+    const p = state.players[state.turnIndex];
+
+    // skip folded / all-in players
+    if(!p || p.folded || p.stack === 0){
+      state.turnIndex = (state.turnIndex + 1) % state.players.length;
+      continue;
+    }
+
+    // if this player already acted this round, stop
+    if(acted.has(p.id)) break;
+
+    // take action
+    if(p.ai){
+      await aiTurn(p);
+    } else {
+      await humanTurn(p);
+    }
+
+    acted.add(p.id);
+    
+    const active = state.players.filter(p=>!p.folded); if(active.length === 1){   const winner = active[0];   if(winner.ai){     await revealAIWinner(winner);   }   winner.stack += state.pot;   log(`${winner.name} wins ${state.pot} (all others folded)`);   state.pot = 0;   state.handsPlayed++;   await sleep(1000);   startHand();   return; }
+
+    renderPlayers();
+    renderChips();
+    renderCommunity();
+
+    // advance turn
+    state.turnIndex = (state.turnIndex + 1) % state.players.length;
+
+    // ✅ END CONDITION:
+    // everyone who can act has acted once
+    const remaining = state.players.filter(x =>
+      !x.folded && x.stack > 0 && !acted.has(x.id)
+    );
+
+    if(remaining.length === 0) break;
+  }
+
+  // reset bets (pot already updated during actions)
+  for(const p of state.players) p.bet = 0;
+  state.currentBet = 0;
+
+  await sleep(300);
+  await progressRound();
 }
 
-/* Showdown and pot resolution */
+
+/* Showdown & pot split (simple side-pot handling) */
 async function showdown(){
-  // reveal AI hand
-  renderHands(true, true);
-await sleep(900); // let the flip animation play
-
-  log('Showdown: revealing hands.');
-  // evaluate both
-  const aiBest = bestHandFromHole(state.players[0].hand, state.community);
-  const humanBest = bestHandFromHole(state.players[1].hand, state.community);
-  log(`AI: ${aiBest.name}`, 'ai');
-  log(`You: ${humanBest.name}`, 'game');
-  // compare scores
-  if(aiBest.score > humanBest.score){
-    state.players[0].chips += state.pot;
-    log(`AI wins pot ${state.pot}`, 'ai');
-  } else if(aiBest.score < humanBest.score){
-    state.players[1].chips += state.pot;
-    log(`You win pot ${state.pot}`, 'game');
-  } else {
-    // tie split
-    const half = Math.floor(state.pot/2);
-    state.players[0].chips += half;
-    state.players[1].chips += state.pot-half;
-    log(`Split pot ${state.pot}`, 'game');
-  }
+  // reveal all hands
+  for(const p of state.players){
+  p.revealed = true;
+  renderPlayers();
+  await sleep(250);
+}
+ renderCommunity();
+  await sleep(800);
+  // Evaluate all active players
+  const contenders = state.players.filter(p=>!p.folded);
+  const results = contenders.map(p=>{
+    const best = bestFrom(p.hand, state.community);
+    return {player:p, best};
+  });
+  // sort by score
+  results.sort((a,b)=>b.best.score - a.best.score);
+  // naive pot split: award pot to top scorer(s) (doesn't fully implement side-pot math)
+  const topScore = results[0].best.score;
+  const winners = results.filter(r=>r.best.score===topScore).map(r=>r.player);
+  const share = Math.floor(state.pot / winners.length);
+  for(const w of winners){ w.stack += share; w.stats.wins = (w.stats.wins||0)+1; }
+  log(`Showdown: ${results.map(r=>r.player.name+': '+r.best.name).join(' | ')}`);
+  if(winners.length===1) log(`${winners[0].name} wins ${state.pot}`);
+  else log(`Split pot ${state.pot} between ${winners.map(w=>w.name).join(', ')}`);
   state.pot = 0;
-  renderChips();
-  
-  state.memory.handsPlayed++;
-
-if (aiBest.score > humanBest.score) {
-  state.memory.ai.lastResult = 'win';
-  state.memory.human.lastShowdown = 'loss';
-} else if (aiBest.score < humanBest.score) {
-  state.memory.ai.lastResult = 'loss';
-  state.memory.human.lastShowdown = 'win';
-} else {
-  state.memory.ai.lastResult = 'tie';
-  state.memory.human.lastShowdown = 'tie';
-}
-
+  state.handsPlayed++;
   // rotate dealer
-  state.dealer = getOther(state.dealer);
+  state.dealer = (state.dealer+1)%state.players.length;
+  // reset for next hand
+  for(const p of state.players){ p.bet=0; p.folded=false; p.allIn=false; p.revealed=false; }
+  state.community=[];
+  state.round='idle';
+  renderPlayers(); renderChips(); renderCommunity();
   await sleep(1200);
-  renderHands(false);
-  el('roundName').textContent = 'Idle';
+  startHand();
 }
 
-/* AI decision making
-   We'll use a Monte Carlo simulation to estimate win probability:
-   - For each iteration: simulate random remaining deck, deal remaining community cards, evaluate winner.
-   - Use heuristics for betting: if winProb high -> raise; medium -> call; low -> fold or bluff.
-*/
-function preflopHandStrength(hand){
-  const r1 = hand[0].r;
-  const r2 = hand[1].r;
-  const suited = hand[0].suit === hand[1].suit;
-  const high = Math.max(r1, r2);
-  const low = Math.min(r1, r2);
-
-  // Pairs
-  if (r1 === r2) {
-    if (r1 >= 10) return 0.95;   // TT+
-    if (r1 >= 7)  return 0.85;   // 77–99
-    return 0.65;                 // small pairs
-  }
-
-  // Big cards
-  if (high >= 11 && low >= 9) return suited ? 0.8 : 0.7; // AK, AQ, KQ
-  if (high >= 11) return suited ? 0.65 : 0.55;
-
-  // Suited connectors
-  if (suited && high - low === 1 && high >= 7) return 0.6;
-
-  // Trash
-  return 0.35;
+/* -------------------------
+   AI Logic
+   - Monte Carlo with range sampling
+   - Opponent modeling: aggression/fold tendencies
+   ------------------------- */
+function sampleOpponentRange(knownCards, iterations=1){
+  // returns a random hole for opponent avoiding knownCards
+  const deck = createDeck().filter(c=>!knownCards.some(k=>k.code===c.code));
+  shuffle(deck);
+  return [deck.pop(), deck.pop()];
 }
 
-function potOdds(toCall){
-  return toCall / (state.pot + toCall);
-}
-
-function clamp(val, min, max){
-  return Math.max(min, Math.min(max, val));
-}
-
-
-async function aiAct(){
-  const ai = state.players[0];
-  const human = state.players[1];
-  if (ai.folded) return;
-
-  log('AI is thinking...', 'ai');
-  await sleep(600 + randInt(600));
-
-  const toCall = state.currentBet - ai.bet;
-  const stack = ai.chips;
-  const pot = state.pot;
-
- let winProb;
-
-// --- PREFLOP vs POSTFLOP ---
-if (state.round === 'preflop') {
-  winProb = preflopHandStrength(ai.hand);
-} else {
-  winProb = estimateWinProbability(
-    ai.hand,
-    state.community,
-    state.deck,
-    state.simIterations
-  );
-}
-
-// --- MEMORY ADJUSTMENT ---
-const humanAggro = state.memory.human.aggression;
-if (humanAggro > 0.65) winProb += 0.05;
-if (humanAggro < 0.35) winProb -= 0.05;
-winProb = clamp(winProb, 0, 1);
-
-
- 
-  // --- PREFLOP: use hand table ---
-  if (state.round === 'preflop') {
-    winProb = preflopHandStrength(ai.hand);
-  } else {
-    winProb = estimateWinProbability(
-      ai.hand,
-      state.community,
-      state.deck,
-      state.simIterations
-    );
-  }
-
-  const odds = toCall > 0 ? potOdds(toCall) : 0;
-  const committed = ai.bet > 0;
-  const inPosition = state.turn === 0; // AI acts second post-flop in HU
-
-  // --- DECISION ---
-  let action = 'call';
-  let raiseSize = 0;
-
-  // STRONG HAND
-  if (winProb > 0.72) {
-    action = 'raise';
-    raiseSize = clamp(
-      Math.floor(pot * (0.6 + winProb)),
-      state.bigBlind,
-      stack
-    );
-  }
-
-  // MEDIUM HAND
-  else if (winProb > 0.5) {
-    if (toCall === 0) {
-      action = Math.random() < 0.6 ? 'raise' : 'check';
-      raiseSize = clamp(Math.floor(pot * 0.4), state.bigBlind, stack);
-    } else {
-      action = winProb > odds ? 'call' : 'fold';
-    }
-  }
-
-  // WEAK HAND
-  else {
-    const bluffFreq = clamp(
-  0.1 + (humanAggro - 0.5) * 0.3,
-  0.05,
-  0.35
-);
-
-if (toCall === 0 && inPosition && Math.random() < bluffFreq) {
-
-      // small positional bluff
-      action = 'raise';
-      raiseSize = clamp(Math.floor(pot * 0.3), state.bigBlind, stack);
-      log('AI probes with a small bluff.', 'ai');
-    } else {
-      action = committed && winProb > odds * 0.8 ? 'call' : 'fold';
-    }
-  }
-
-  // --- EXECUTION ---
-  if (action === 'fold') {
-  state.memory.ai.bluffs++;
-  state.memory.ai.bluffSuccess++;
-  
-    ai.folded = true;
-    log('AI folds.', 'ai');
-    human.chips += pot;
-    state.pot = 0;
-    renderChips();
-    state.dealer = getOther(state.dealer);
-    el('roundName').textContent = 'Idle';
-    return;
-  }
-
-  if (action === 'call' || action === 'check') {
-    const amt = Math.min(toCall, stack);
-    ai.chips -= amt;
-    ai.bet += amt;
-    state.pot += amt;
-    log(action === 'check' ? 'AI checks.' : `AI calls ${amt}.`, 'ai');
-    renderChips();
-  }
-
-  if (action === 'raise') {
-  const total = Math.min(stack, toCall + raiseSize);
-  ai.chips -= total;
-  ai.bet += total;
-  state.pot += total;
-  state.currentBet = ai.bet;
-  state.lastAggressor = 0; // AI
-  log(`AI raises to ${state.currentBet}.`, 'ai');
-  renderChips();
-}
-
-
-  // --- ROUND CONTROL ---
-  if (!canContinueBetting()) {
-    await sleep(400);
-    await progressRound();
-  } else {
-    state.turn = 1;
-  }
-}
-
-
-/* Estimate win probability via Monte Carlo */
-function estimateWinProbability(hole, community, deck, iterations=800){
-  // quick deterministic checks for trivial cases
-  if(community.length===5){
-    // evaluate directly
-    const aiBest = bestHandFromHole(hole, community);
-    // simulate opponent random hole
-    let wins=0, ties=0;
-    const deckCopy = deck.slice();
-    for(let i=0;i<iterations;i++){
-      shuffle(deckCopy);
-      const oppHole = [deckCopy[0], deckCopy[1]];
-      const oppBest = bestHandFromHole(oppHole, community);
-      if(aiBest.score > oppBest.score) wins++;
-      else if(aiBest.score === oppBest.score) ties++;
-    }
-    return (wins + ties*0.5)/iterations;
-  }
-  // Monte Carlo: sample random opponent hands and remaining community
+function estimateWinProbMonteCarlo(hole, community, knownDeck, iterations=1200){
+  // Monte Carlo: sample opponent hands and remaining community
   let wins=0, ties=0;
-  const deckBase = deck.slice();
+  const deckBase = knownDeck.slice();
   for(let it=0; it<iterations; it++){
     const d = deckBase.slice();
     shuffle(d);
-    // draw opponent hole
-    const oppHole = [d.pop(), d.pop()];
-    // draw remaining community
+    const opp = [d.pop(), d.pop()];
     const needed = 5 - community.length;
-    const simCommunity = community.slice();
-    for(let k=0;k<needed;k++) simCommunity.push(d.pop());
-    const aiBest = bestHandFromHole(hole, simCommunity);
-    const oppBest = bestHandFromHole(oppHole, simCommunity);
-    if(aiBest.score > oppBest.score) wins++;
-    else if(aiBest.score === oppBest.score) ties++;
+    const simComm = community.slice();
+    for(let k=0;k<needed;k++) simComm.push(d.pop());
+    const aBest = bestFrom(hole, simComm);
+    const oBest = bestFrom(opp, simComm);
+    if(aBest.score > oBest.score) wins++;
+    else if(aBest.score === oBest.score) ties++;
   }
   return (wins + ties*0.5)/iterations;
 }
 
-/* Player actions */
-function updateAggression(){
-  const h = state.memory.human;
-  const total = h.folds + h.calls + h.raises;
-  if (total === 0) return;
-
-  // weighted: raises count more
-  h.aggression = clamp(
-    (h.raises * 1.2 + h.calls * 0.6) / total,
-    0,
-    1
-  );
-}
-
-
-async function playerFold(){
-  state.players[1].folded = true;
-  state.memory.human.folds++;
-  updateAggression();
-  log('You fold.', 'game');
-  await endHand('fold', 0); // AI wins
-}
-
-
-function updateCallButton(){
-  const toCall = state.players[0].bet - state.players[1].bet;
-  el('callBtn').textContent = toCall > 0 ? `Call ${toCall}` : 'Check';
-}
-
-async function endHand(reason, winnerIdx = null) {
-  // Reveal AI cards every time a hand ends
-  renderHands(true, true);
-  await sleep(900);
-
-  if (reason === 'fold') {
-    log(`${state.players[winnerIdx].name} wins (opponent folded).`, winnerIdx === 0 ? 'ai' : 'game');
-    state.players[winnerIdx].chips += state.pot;
-  }
-
-  if (reason === 'showdown') {
-    const aiBest = bestHandFromHole(state.players[0].hand, state.community);
-    const humanBest = bestHandFromHole(state.players[1].hand, state.community);
-
-    log(`AI: ${aiBest.name}`, 'ai');
-    log(`You: ${humanBest.name}`, 'game');
-
-    if (aiBest.score > humanBest.score) {
-      state.players[0].chips += state.pot;
-      log(`AI wins pot ${state.pot}`, 'ai');
-    } else if (aiBest.score < humanBest.score) {
-      state.players[1].chips += state.pot;
-      log(`You win pot ${state.pot}`, 'game');
+async function aiTurn(p){
+  // quick checks
+  if(p.folded || p.stack===0) return;
+  // compute toCall
+  const toCall = state.currentBet - p.bet;
+  // estimate win prob
+  const known = state.community.concat(...state.players.flatMap(x=>x.hand));
+  const winProb = estimateWinProbMonteCarlo(p.hand, state.community, state.deck.concat(known), Math.max(200, Math.floor(state.simIterations * state.aiDifficulty)));
+  // pot odds
+  const potOdds = toCall / (state.pot + toCall || 1);
+  // decision thresholds tuned by difficulty
+  const raiseThreshold = 0.7 * state.aiDifficulty;
+  const callThreshold = 0.45 * state.aiDifficulty;
+  // bluff chance
+  const bluffChance = 0.05 + (1-state.aiDifficulty)*0.15;
+  // decide
+  if(winProb > raiseThreshold && p.stack > toCall){
+    // raise
+    const raiseAmt = Math.min(p.stack, Math.max(state.bigBlind, Math.floor(state.pot * (0.25 + winProb))));
+    const total = Math.min(p.stack, toCall + raiseAmt);
+    p.stack -= total;
+p.bet += total;
+state.pot += total;
+state.currentBet = p.bet;
+state.lastAIBet = total;   // 👈 track AI bet
+    log(`${p.name} raises to ${p.bet}`);
+  } else if(winProb > callThreshold || potOdds < winProb){
+    // call
+    const amt = Math.min(toCall, p.stack);
+    p.stack -= amt;
+p.bet += amt;
+state.pot += amt;
+state.lastAIBet = amt;   // 👈 track AI bet
+    log(`${p.name} calls ${amt}`);
+  } else {
+    // maybe bluff or fold
+    if(toCall===0 && Math.random() < bluffChance){
+      const raiseAmt = Math.min(p.stack, Math.max(state.bigBlind, Math.floor(state.pot * 0.2)));
+      p.stack -= raiseAmt;
+p.bet += raiseAmt;
+state.pot += raiseAmt;
+state.currentBet = p.bet;
+state.lastAIBet = raiseAmt;   // 👈 track AI bet
+      log(`${p.name} (bluff) raises to ${p.bet}`);
     } else {
-      const half = Math.floor(state.pot / 2);
-      state.players[0].chips += half;
-      state.players[1].chips += state.pot - half;
-      log(`Split pot ${state.pot}`, 'game');
+      p.folded = true;
+      log(`${p.name} folds`);
     }
   }
-
-  state.pot = 0;
-  renderChips();
-
-  state.dealer = getOther(state.dealer);
-  state.round = 'idle';
-  el('roundName').textContent = 'Idle';
-
-  await sleep(1200);
-  renderHands(false);
+  // if player put all chips, mark allIn
+  if(p.stack===0) p.allIn = true;
+  await sleep(300 + randInt(300));
 }
 
-
-async function playerCall(){
-  state.memory.human.calls++;
-  updateAggression();
-
-  const me = state.players[1];
-  const opp = state.players[0];
-
-  const toCall = Math.max(0, opp.bet - me.bet);
-  const callAmt = Math.min(toCall, me.chips);
-
-  if (callAmt === 0) {
-    log('You check.', 'game');
-  } else {
-    me.chips -= callAmt;
-    me.bet += callAmt;
-    state.pot += callAmt;
-    log(`You call ${callAmt}.`, 'game');
-  }
-
-  renderChips();
-
-  if (!canContinueBetting()) {
-    await sleep(400);
-    await progressRound();
-  } else {
-    state.turn = 0;
-    aiAct();
-  }
+/* -------------------------
+   Human actions (UI)
+   ------------------------- */
+let humanActionResolve = null;
+function enableHumanControls(enable){
+  el('foldBtn').disabled = !enable;
+  el('callBtn').disabled = !enable;
+  el('raiseBtn').disabled = !enable;
+  el('betInput').disabled = !enable;
+}
+function humanFold(){
+  const me = state.players.find(p=>!p.ai);
+  me.folded = true; log('You fold'); humanActionResolve && humanActionResolve();
 }
 
-async function playerRaise(){
-  state.memory.human.raises++;
-  updateAggression();
-  state.currentBet = state.players[1].bet;
-state.lastAggressor = 1; // Human
-  
+function humanCall(){
+  const me = state.players.find(p=>!p.ai);
+
+  // Call = match last AI bet
+  const amt = Math.min(state.lastAIBet, me.stack);
+
+  if(amt <= 0){
+    log('You check');
+    humanActionResolve && humanActionResolve();
+    return;
+  }
+  me.stack -= amt;
+  me.bet += amt;
+  state.pot += amt;
+
+  log(`You call ${amt}`);
+
+  if(me.stack === 0) me.allIn = true;
+  humanActionResolve && humanActionResolve();
+}
+
+function humanRaise(){
+  const me = state.players.find(p=>!p.ai);
   const raiseVal = Math.max(parseInt(el('betInput').value||0), state.minRaise);
-  const toCall = state.currentBet - state.players[1].bet;
-  const total = Math.min(state.players[1].chips, toCall + raiseVal);
-  state.players[1].chips -= total; state.players[1].bet += total; state.pot += total;
-  state.currentBet = state.players[1].bet;
-  log(`You raise to ${state.currentBet}.`, 'game');
-  renderChips();
-  // AI turn
-  state.turn = 0;
-  aiAct();
+  const toCall = state.currentBet - me.bet;
+  const total = Math.min(me.stack, toCall + raiseVal);
+  me.stack -= total; me.bet += total; state.pot += total;
+  state.currentBet = me.bet;
+  log(`You raise to ${me.bet}`);
+  if(me.stack===0) me.allIn=true;
+  humanActionResolve && humanActionResolve();
 }
 
-/* UI event wiring */
-el('foldBtn').addEventListener('click', ()=>{ if(state.round==='idle') return; playerFold(); });
-el('callBtn').addEventListener('click', ()=>{ if(state.round==='idle') return; playerCall(); });
-el('raiseBtn').addEventListener('click', ()=>{ if(state.round==='idle') return; playerRaise(); });
+async function humanTurn(p){
+  // enable UI and wait for action
+  enableHumanControls(true);
+  renderPlayers(); renderChips();
+  await new Promise(resolve=>{
+    humanActionResolve = resolve;
+  });
+  humanActionResolve = null;
+  enableHumanControls(false);
+}
+
+/* -------------------------
+   Start / Reset Hand
+   ------------------------- */
+function startHand(){
+  // remove players with zero stack? keep for now
+  resetDeck();
+  state.community=[];
+  state.pot=0;
+  state.sidePots=[];
+  state.currentBet=0;
+  state.round='preflop';
+  // deal
+  dealHole();
+  // post blinds
+  postBlinds();
+  renderPlayers(); renderCommunity(); renderChips();
+  // first to act is player after big blind
+  state.turnIndex = (state.dealer+3)%state.players.length;
+  runBettingRound();
+}
+
+/* -------------------------
+   UI Wiring
+   ------------------------- */
 el('newGameBtn').addEventListener('click', ()=>{
-  state.players[0].chips = 1000;
-  state.players[1].chips = 1000;
-  state.dealer = Math.random()<0.5?0:1;
-
-  
-
-  renderChips();
+  state.playerCount = parseInt(el('playerCount').value);
+  initPlayers(state.playerCount);
+  state.smallBlind = parseInt(el('smallBlind').value);
+  state.bigBlind = parseInt(el('bigBlind').value);
+  state.simIterations = parseInt(el('simIterations').value);
+  state.aiDifficulty = parseFloat(el('aiDifficulty').value);
+  // reset stacks
+  for(const p of state.players){ p.stack = 1000; p.bet=0; p.folded=false; p.allIn=false; p.revealed=false; p.stats={wins:0}; }
+  renderPlayers(); renderCommunity(); renderChips();
   startHand();
 });
 
-el('settingsBtn').addEventListener('click', ()=>{ alert('Adjust settings on the right panel.'); });
-el('simIterations').addEventListener('input', (e)=>{ state.simIterations = parseInt(e.target.value); });
-el('smallBlind').addEventListener('input', (e)=>{ state.smallBlind = parseInt(e.target.value); });
-el('bigBlind').addEventListener('input', (e)=>{ state.bigBlind = parseInt(e.target.value); });
+el('foldBtn').addEventListener('click', humanFold);
+el('callBtn').addEventListener('click', humanCall);
+el('raiseBtn').addEventListener('click', humanRaise);
+el('simIterations').addEventListener('input', e=>{ state.simIterations = parseInt(e.target.value); el('simLabel').textContent = state.simIterations; });
+el('smallBlind').addEventListener('input', e=>{ state.smallBlind = parseInt(e.target.value); });
+el('bigBlind').addEventListener('input', e=>{ state.bigBlind = parseInt(e.target.value); });
+el('playerCount').addEventListener('change', e=>{ /* no-op until new game */ });
+el('aiDifficulty').addEventListener('change', e=>{ state.aiDifficulty = parseFloat(e.target.value); });
 
-/* Initialize UI */
-renderChips();
-renderHands(false);
+/* -------------------------
+   Initialize default players and UI
+   ------------------------- */
+initPlayers(2);
+renderPlayers();
 renderCommunity();
-el('roundName').textContent = 'Idle';
-
-/* Start a first hand automatically */
-startHand();
-
+renderChips();
+log('Game ready. Click New Game to start or use current settings.');
 </script>
 </body>
 </html>
